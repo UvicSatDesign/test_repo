@@ -20,7 +20,7 @@ jobs:
       HIL_TOOLS_DIR: "hil_runner_tools" # Local directory to clone HIL tools into
 
       # STM32 Project Specifics (relative to this UvicSatDesign/test_repo)
-      STM32_BUILD_DIR: "Release"                 # Build directory within this repo (e.g., "Release", "Debug")
+      STM32_BUILD_DIR: "Debug"                 # Build directory within this repo (e.g., "Release", "Debug")
       STM32_FIRMWARE_ELF_NAME: "test_repo.elf"   # Expected ELF name from your Makefile.
                                                  # Verify this matches your STM32CubeIDE project output.
       STM32_FIRMWARE_BIN_NAME: "test_repo.bin"   # Desired BIN firmware name for flashing
