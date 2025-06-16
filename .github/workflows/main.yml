@@ -10,7 +10,7 @@ on:
   
 env:
   ##path to STM32 folder
-  path: "~~/actions-runner/_work/test_repo/test_repo"
+  path: "~/actions-runner/_work/test_repo/test_repo"
   ## name of STM32 folder
   elf: "test_repo"
 
