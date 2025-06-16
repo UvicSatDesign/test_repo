@@ -1,93 +1,52 @@
-name: STM32 HIL Build and Flash
+# This is a basic workflow to help you get started with Actions
 
-# This workflow triggers when code is pushed to this repository (UvicSatDesign/test_repo)
-# or when manually triggered via the Actions tab.
+name: CI
+
+# Controls when the workflow will run
 on:
+  # Triggers the workflow on push or pull request events but only for the "main" branch
   push:
-    branches:
-      - main # Or your primary development branch in UvicSatDesign/test_repo
-  workflow_dispatch: # Allows manual triggering
+    branches: [ "main" ]
+  
+env:
+  ##path to STM32 folder
+  path: "~/actions-runner/hardware_in-loop-testing/test_repo"
+  ## name of STM32 folder
+  elf: "test_repo"
 
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  build_and_flash:
-    # IMPORTANT: This job must run on your self-hosted Raspberry Pi runner,
-    # which should now be registered to THIS repository (UvicSatDesign/test_repo).
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
     runs-on: self-hosted
-    env:
-      # Repository containing your HIL utility scripts (if any are needed in the future).
-      # For now, this is just a placeholder if all you do is build/flash.
-      HIL_TOOLS_REPO: "UvicSatDesign/hardware_in-loop"
-      HIL_TOOLS_DIR: "hil_runner_tools" # Local directory to clone HIL tools into
 
-      # STM32 Project Specifics (relative to this UvicSatDesign/test_repo)
-      STM32_BUILD_DIR: "Debug"                 # Build directory within this repo (e.g., "Release", "Debug")
-      STM32_FIRMWARE_ELF_NAME: "test_repo.elf"   # Expected ELF name from your Makefile.
-                                                 # Verify this matches your STM32CubeIDE project output.
-      STM32_FIRMWARE_BIN_NAME: "test_repo.bin"   # Desired BIN firmware name for flashing
-      STM32_FLASH_ADDRESS: "0x08000000"          # Flash address for STM32 Nucleo-H743ZI2
-
+    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      - name: Checkout STM32 Project Code (This Repo)
-        uses: actions/checkout@v4
-        # This step checks out the code of UvicSatDesign/test_repo
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v3
 
-      # Optional: Checkout HIL Runner Tools (uncomment if you have scripts in UvicSatDesign/hardware_in-loop)
-      # - name: Checkout HIL Runner Tools
-      #   uses: actions/checkout@v4
-      #   with:
-      #     repository: ${{ env.HIL_TOOLS_REPO }}
-      #     path: ${{ env.HIL_TOOLS_DIR }}
-      #     # token: ${{ secrets.TOOLS_REPO_PAT }} # Add if HIL_TOOLS_REPO is private & create secret in UvicSatDesign/test_repo
+      # Runs a single command using the runners shell
+      - name: Run a one-line script
+        run: echo Hello, world!
 
-      - name: Verify STM32 Build and Flash Tools
-        shell: bash
+      # Runs a set of commands using the runners shell
+      - name: Run a multi-line script
         run: |
-          echo "Verifying required tools: make, arm-none-eabi-gcc, arm-none-eabi-objcopy, st-flash"
-          if ! command -v make &> /dev/null; then echo "Error: make not found."; exit 1; fi
-          if ! command -v arm-none-eabi-gcc &> /dev/null; then echo "Error: arm-none-eabi-gcc not found (needed for toolchain and objcopy)."; exit 1; fi
-          if ! command -v arm-none-eabi-objcopy &> /dev/null; then echo "Error: arm-none-eabi-objcopy not found."; exit 1; fi
-          if ! command -v st-flash &> /dev/null; then echo "Error: st-flash not found. Ensure stlink-tools are installed on the runner."; exit 1; fi
-          echo "All required STM32 build/flash tools appear to be available."
-
-      - name: Build STM32 Code (STM32CubeIDE Makefile)
-        shell: bash
-        # working-directory is relative to the root of the checked-out UvicSatDesign/test_repo
-        working-directory: ./${{ env.STM32_BUILD_DIR }}
+          echo Add other actions to build,
+          echo test, and deploy your project.
+      - name: Print modified file
         run: |
-          echo "Starting build in $(pwd)..."
-          make clean
-          make -j$(nproc) # Use all available processor cores for faster build
-          echo "Build finished."
-          # Check if the expected ELF file was created
-          if [ ! -f "${{ env.STM32_FIRMWARE_ELF_NAME }}" ]; then
-            echo "Error: Expected ELF firmware file '${{ env.STM32_FIRMWARE_ELF_NAME }}' not found in $(pwd) after build!"
-            echo "Please verify STM32_FIRMWARE_ELF_NAME environment variable and your STM32 project's build output."
-            exit 1
-          fi
-          echo "ELF Firmware '${{ env.STM32_FIRMWARE_ELF_NAME }}' found."
-
-      - name: Flash STM32 Board (Nucleo-H743ZI2 using st-flash)
-        shell: bash
-        # Paths are relative to the root of the checked-out UvicSatDesign/test_repo
-        run: |
-          ELF_FIRMWARE_PATH="./${{ env.STM32_BUILD_DIR }}/${{ env.STM32_FIRMWARE_ELF_NAME }}"
-          BIN_FIRMWARE_PATH="./${{ env.STM32_BUILD_DIR }}/${{ env.STM32_FIRMWARE_BIN_NAME }}"
+          echo $(pwd)
+          cd ${{env.path}}
+          echo $(pwd)
+          git pull origin main
+          cd ${{env.path}}/Release   
+          arm-none-eabi-objcopy -O binary ${{env.elf}}.elf ${{env.elf}}.bin
+          echo Binary file ready
+          st-flash write ${{env.elf}}.bin 0x8000000
+          echo Uploaded Code
+          sleep 3
+          st-flash reset
           
-          echo "Preparing to flash. ELF source: $ELF_FIRMWARE_PATH"
-          if [ ! -f "$ELF_FIRMWARE_PATH" ]; then
-            echo "Error: ELF Firmware file $ELF_FIRMWARE_PATH not found before flashing!"
-            exit 1
-          fi
-
-          echo "Converting ELF to BIN format: $BIN_FIRMWARE_PATH"
-          arm-none-eabi-objcopy -O binary "$ELF_FIRMWARE_PATH" "$BIN_FIRMWARE_PATH"
-          if [ ! -f "$BIN_FIRMWARE_PATH" ]; then 
-            echo "Error: BIN Firmware file $BIN_FIRMWARE_PATH was not created during conversion."
-            exit 1
-          fi
-          echo "Successfully converted ELF to BIN."
-
-          echo "Flashing STM32 Nucleo-H743ZI2 with st-flash..."
-          echo "Command: st-flash write $BIN_FIRMWARE_PATH ${{ env.STM32_FLASH_ADDRESS }}"
-          st-flash write "$BIN_FIRMWARE_PATH" ${{ env.STM32_FLASH_ADDRESS }}
-          echo "Flash command executed. Review output above for success or errors."
